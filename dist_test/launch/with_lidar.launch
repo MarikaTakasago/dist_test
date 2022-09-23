@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+
+<launch>
+    <node pkg="dist_test" type="with_lidar" name="with_lidar" output="screen">
+        <param name="display" value="false" />
+        <param name="conf_th" value="0.5" />
+    </node>
+</launch>
