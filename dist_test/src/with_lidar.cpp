@@ -70,6 +70,7 @@ void WithLidar::bbox_callback(const camera_apps_msgs::Masks::ConstPtr& msg)
         angle_.clear();
         id_.clear();
         person_poses_.poses.clear();
+        person_poses_.header.stamp = scan_.header.stamp;
 
         for(auto mask : masks_.masks)
         {
