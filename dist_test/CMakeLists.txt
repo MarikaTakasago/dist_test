@@ -15,6 +15,7 @@ find_package(catkin REQUIRED COMPONENTS
   std_msgs
   cv_bridge
   camera_apps_msgs
+  message_filters
 )
 find_package(OpenCV REQUIRED)
 
@@ -141,6 +142,7 @@ include_directories(
 # add_executable(${PROJECT_NAME}_node src/dist_test_node.cpp)
 add_executable(dist_test src/dist_test.cpp)
 add_executable(with_lidar src/with_lidar.cpp)
+add_executable(with_lidar_mf src/with_lidar_mf.cpp)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -152,6 +154,7 @@ add_executable(with_lidar src/with_lidar.cpp)
 ## same as for the library above
 add_dependencies(dist_test ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 add_dependencies(with_lidar ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(with_lidar_mf ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
 # target_link_libraries(${PROJECT_NAME}_node
@@ -159,6 +162,7 @@ add_dependencies(with_lidar ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTE
 # )
 target_link_libraries(dist_test ${catkin_LIBRARIES})
 target_link_libraries(with_lidar ${catkin_LIBRARIES})
+target_link_libraries(with_lidar_mf ${catkin_LIBRARIES})
 
 #############
 ## Install ##
