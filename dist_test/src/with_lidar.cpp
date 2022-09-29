@@ -144,8 +144,8 @@ void WithLidar::calculate_id(int xmin,int xmax)
     double angle_min = lidar_fi_min - M_PI - M_PI/4.0;
     double angle_max = lidar_fi_max - M_PI - M_PI/4.0;
     angle_.push_back(angle);
-    id_max_ = -8*angle_min + 720;
-    id_min_ = -8*angle_max + 720;
+    id_max_ = -8*angle_min*180/M_PI + 720;
+    id_min_ = -8*angle_max*180/M_PI + 720;
     std::cout << "id_min : " << id_min_ << std::endl;
     std::cout << "id_max : " << id_max_ << std::endl;
 
