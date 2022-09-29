@@ -29,6 +29,7 @@ class WithLidar
         void measure_danda(); // danda = "d"istance "and" "a"ngle
         void calculate_id(int xmin,int xmax);
         void display_distances(int person_num);
+        void get_masked_pixels(cv::Mat img);
 
         //valiables
         cv::Mat input_image_;
@@ -54,6 +55,13 @@ class WithLidar
         double a_;
         double b_;
 
+        //mask image
+        cv::Mat mask_image_;
+        double lower_ = 0.1;
+        double upper_ = 0.3;
+        std::vector<int> masked_pixels_;
+
+        //checker
         bool get_image_ = false;
         bool get_scan_ = false;
         bool get_bbox_ = false;
@@ -71,6 +79,7 @@ class WithLidar
         //msg
         sensor_msgs::LaserScan scan_;
         sensor_msgs::Image image_msg_;
+        sensor_msgs::Image mask_image_msg;
         camera_apps_msgs::Masks masks_;
         camera_apps_msgs::BoundingBoxes bboxes_;
         geometry_msgs::PoseArray person_poses_;

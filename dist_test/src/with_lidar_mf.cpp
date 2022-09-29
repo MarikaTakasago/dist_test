@@ -42,8 +42,6 @@ void sync_callback(const sensor_msgs::LaserScan::ConstPtr& lidar_msg,
         //calc id from grid x
         double lidar_fi_min = M_PI*xmin*2.0/image_width_;
         double lidar_fi_max = M_PI*xmax*2.0/image_width_;
-        id_min_ = (scan_line_sum_*2/(3*M_PI))*lidar_fi_min - scan_line_sum_/6;
-        id_max_ = (scan_line_sum_*2/(3*M_PI))*lidar_fi_max - scan_line_sum_/6;
         // double fi_min = lidar_fi_min + M_PI/4.0;
         // double fi_max = lidar_fi_max + M_PI/4.0;
         // if(fi_min > 2*M_PI) fi_min -= 2*M_PI;
@@ -65,8 +63,8 @@ void sync_callback(const sensor_msgs::LaserScan::ConstPtr& lidar_msg,
         double angle_min = lidar_fi_min - M_PI - M_PI/4.0;
         double angle_max = lidar_fi_max - M_PI - M_PI/4.0;
         angle_.push_back(angle);
-        // id_min_ = 8*angle_min + 1440;
-        // id_max_ = 8*angle_max + 1440;
+        id_max_ = -8*angle_min + 720;
+        id_min_ = -8*angle_max + 720;
         std::cout << "id_min : " << id_min_ << std::endl;
         std::cout << "id_max : " << id_max_ << std::endl;
         //end calc_id

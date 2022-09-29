@@ -143,6 +143,7 @@ include_directories(
 add_executable(dist_test src/dist_test.cpp)
 add_executable(with_lidar src/with_lidar.cpp)
 add_executable(with_lidar_mf src/with_lidar_mf.cpp)
+add_executable(use_pixel src/use_pixel.cpp)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -155,6 +156,7 @@ add_executable(with_lidar_mf src/with_lidar_mf.cpp)
 add_dependencies(dist_test ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 add_dependencies(with_lidar ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 add_dependencies(with_lidar_mf ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(use_pixel ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
 # target_link_libraries(${PROJECT_NAME}_node
@@ -163,6 +165,7 @@ add_dependencies(with_lidar_mf ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPO
 target_link_libraries(dist_test ${catkin_LIBRARIES})
 target_link_libraries(with_lidar ${catkin_LIBRARIES})
 target_link_libraries(with_lidar_mf ${catkin_LIBRARIES})
+target_link_libraries(use_pixel ${catkin_LIBRARIES})
 
 #############
 ## Install ##
