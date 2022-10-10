@@ -5,7 +5,7 @@ WithLidar::WithLidar() : private_nh_("~")
     private_nh_.param("scan_line_sum", scan_line_sum_, 2161);
     private_nh_.param("scan_angle", scan_angle_, 270);
     private_nh_.param("laser_num", laser_num_, 10);
-    private_nh_.param("display", display_, false);
+    private_nh_.param("display", display_, true);
     private_nh_.param("conf_th_", conf_th_, 0.5);
 
     sub_scan_ = nh_.subscribe("/scan",1,&WithLidar::scan_callback,this);
@@ -34,6 +34,7 @@ void WithLidar::image_callback(const sensor_msgs::Image::ConstPtr& msg)
     image_msg_ = *msg;
     image_center_x_ = image_msg_.width/2;
     image_width_ = image_msg_.width;
+    image_height_ = image_msg_.height;
     // ROS_INFO("receive image");
     //to cv image
     cv_bridge::CvImagePtr cv_ptr;
@@ -54,9 +55,11 @@ void WithLidar::bbox_callback(const camera_apps_msgs::Masks::ConstPtr& msg)
 {
     masks_ = *msg;
     ROS_INFO("receive bbox");
+    int person_num = 0;
     if(masks_.masks.size() == 0)
     {
         std::cout<<"no person"<<std::endl;
+        if(display_) display_distances(0);
         return;
     }
 
@@ -65,7 +68,6 @@ void WithLidar::bbox_callback(const camera_apps_msgs::Masks::ConstPtr& msg)
         get_bbox_ = true;
 
         //reset vector and counter
-        int person_num = 0;
         distance_.clear();
         angle_.clear();
         id_.clear();
@@ -84,7 +86,13 @@ void WithLidar::bbox_callback(const camera_apps_msgs::Masks::ConstPtr& msg)
             int ymax = bbox.ymax;
 
             //if person is not in the scan angle : skip
-            if(xmax < image_width_/8 || image_width_*7/8 < xmin) continue;
+            if(xmax < image_width_/8 || image_width_*7/8 < xmin)
+            {
+                calculate_id(xmin,xmax);
+                distance_.push_back(-1.0);
+                person_num++;
+                continue;
+            }
             if(xmin < image_width_/8) xmin = image_width_/8;
             if(image_width_*7/8 < xmax) xmax = image_width_*7/8;
 
@@ -208,26 +216,42 @@ void WithLidar::measure_danda()
 
 void WithLidar::display_distances(int person_num)
 {
+    //draw rectangle laser range alpha = 10
+    int start_x = image_width_/8;
+    int start_y = 0;
+    int end_x = image_width_/8*7;
+    int end_y = 640;
+    cv::Mat roi = input_image_(cv::Rect(0,0,start_x,end_y));
+    cv::Mat color(roi.size(),CV_8UC3,cv::Scalar(0,0,255));
+    double alpha = 0.8;
+    cv::addWeighted(roi,alpha,color,1.0-alpha,0.0,roi);
+    cv::Mat roi2 = input_image_(cv::Rect(end_x,0,image_width_-end_x,end_y));
+    cv::Mat color2(roi2.size(),CV_8UC3,cv::Scalar(0,0,255));
+    cv::addWeighted(roi2,alpha,color2,1.0-alpha,0.0,roi2);
+
     //display distance and angle
-    for(int i=0; i < person_num; i++)
+    if (person_num > 0)
     {
-        std::stringstream ss;
-        // ss << "person_" << i << " d: " << std::fixed << std::setprecision(2) << distance_[i] << " [m] / a: " << angle_[i]*180.0/M_PI - 180 -45;
-        ss << "person_" << i << " d: " << std::fixed << std::setprecision(2) << distance_[i] << " [m] / a: " << angle_[i]*180/M_PI;
-        std::string str = ss.str();
-        cv::putText(input_image_, str, cv::Point(10, 30*(i+1)), cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar(0,0,255), 2, cv::LINE_AA);
-        //put line on scan id
-        double id_x = (id_[i]-b_)/a_;
-        // std::cout << "id_x : " << id_x << std::endl;
-        cv::line(input_image_, cv::Point(id_x,0), cv::Point(id_x,image_msg_.height), cv::Scalar(0,0,255), 2, cv::LINE_AA);
+        for(int i=0; i < person_num; i++)
+        {
+            std::stringstream ss;
+            if(distance_[i]>=0)
+            {
+                ss << "Person" << i << ": " << std::fixed << std::setprecision(2) << distance_[i] << " m , " << angle_[i]*180/M_PI << " deg";
+            }
+            else
+            {
+                ss << "Person" << i << ": OutOfRange, " << angle_[i]*180/M_PI << " deg";
+            }
+
+            std::string str = ss.str();
+            cv::putText(input_image_, str, cv::Point(10, 30*(i+1)), cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar(255,0,0), 2, cv::LINE_AA);
+        }
     }
 
-    //put line on scan min and max
-    cv::line(input_image_, cv::Point(image_width_/8,60), cv::Point(image_width_/8,image_msg_.height), cv::Scalar(255,0,0), 2, cv::LINE_AA);
-    cv::line(input_image_, cv::Point(image_width_*7/8,0), cv::Point(image_width_*7/8,image_msg_.height), cv::Scalar(255,0,0), 2, cv::LINE_AA);
-
-    //put line on brushee front
-    cv::line(input_image_, cv::Point(image_width_*5/8,0), cv::Point(image_width_*5/8,image_msg_.height), cv::Scalar(0,255,0), 2, cv::LINE_AA);
+    //put line on brushee front and put text "front"
+    cv::putText(input_image_, "front", cv::Point(image_width_*5/8-35,30), cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar(0,255,0), 2, cv::LINE_AA);
+    cv::line(input_image_, cv::Point(image_width_*5/8,50), cv::Point(image_width_*5/8,500), cv::Scalar(0,255,0), 2, cv::LINE_AA);
 
     //publish image
     cv_bridge::CvImage cv_image;
