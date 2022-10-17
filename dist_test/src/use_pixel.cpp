@@ -1,4 +1,4 @@
-#include <dist_test/with_lidar.h>
+#include <dist_test/use_pixel.h>
 
 WithLidar::WithLidar() : private_nh_("~")
 {
@@ -7,6 +7,8 @@ WithLidar::WithLidar() : private_nh_("~")
     private_nh_.param("laser_num", laser_num_, 10);
     private_nh_.param("display", display_, false);
     private_nh_.param("conf_th_", conf_th_, 0.5);
+    private_nh_.param("upper", upper_, 0.3);
+    private_nh_.param("lower", lower_, 0.1);
 
     sub_scan_ = nh_.subscribe("/scan",1,&WithLidar::scan_callback,this);
     sub_image_ = nh_.subscribe("/detected_image",1,&WithLidar::image_callback,this);
@@ -15,7 +17,7 @@ WithLidar::WithLidar() : private_nh_("~")
     pub_image_ = nh_.advertise<sensor_msgs::Image>("/with_lidar",1);
     pub_poses_ = nh_.advertise<geometry_msgs::PoseArray>("/person_poses",1);
 
-    id_min_ = id_max_ = 0;
+    pic_id_min_ = pic_id_max_ = box_id_min_ = box_id_max_ = 0;
     person_poses_.header.frame_id = "base_link";
     person_poses_.poses.resize(0);
 }
@@ -57,6 +59,7 @@ void WithLidar::bbox_callback(const camera_apps_msgs::Masks::ConstPtr& msg)
     if(masks_.masks.size() == 0)
     {
         std::cout<<"no person"<<std::endl;
+        if(display_) display_distances(0);
         return;
     }
 
@@ -68,7 +71,6 @@ void WithLidar::bbox_callback(const camera_apps_msgs::Masks::ConstPtr& msg)
         int person_num = 0;
         distance_.clear();
         angle_.clear();
-        id_.clear();
         person_poses_.poses.clear();
         person_poses_.header.stamp = scan_.header.stamp;
 
@@ -89,26 +91,34 @@ void WithLidar::bbox_callback(const camera_apps_msgs::Masks::ConstPtr& msg)
             }
             mask_image_ = cv_ptr->image;
             get_masked_pixels(mask_image_);
+            int masked_size = masked_pixels_.size();
 
             //get bbox
             camera_apps_msgs::BoundingBox bbox = mask.bounding_box;
 
             //if label is not person skip
             if(bbox.label != "person" || bbox.confidence < conf_th_) continue;
-            int xmin = bbox.xmin;
-            int xmax = bbox.xmax;
 
             //if person is not in the scan angle : skip
-            if(xmax < image_width_/8 || image_width_*7/8 < xmin) continue;
+            int xmin = bbox.xmin+masked_pixels_[0];
+            int xmax = bbox.xmin+masked_pixels_[masked_size-1];
+            if(xmax < image_width_/8 || image_width_*7/8 < xmin)
+            {
+                calculate_id_pic(bbox.xmin,masked_size);
+                distance_.push_back(-1.0);
+                person_num++;
+                continue;
+            }
             if(xmin < image_width_/8) xmin = image_width_/8;
             if(image_width_*7/8 < xmax) xmax = image_width_*7/8;
 
-            calculate_id(xmin,xmax);
+            calculate_id_pic(bbox.xmin,masked_size);
+            calculate_id_box(bbox.xmin,bbox.xmax);
             measure_danda(); //calculate distance and angle
 
             //for debug
             std::cout << "x range : " << xmin << "," << xmax<< std::endl;
-            std::cout << "scan_id : " << (id_min_ + id_max_)/2.0 << std::endl;
+            std::cout << "scan_id : " << (pic_id_min_ + pic_id_max_)/2.0 << std::endl;
             std::cout << "distance : " << distance_[person_num] << std::endl;
             std::cout << "angle : " << angle_[person_num]*180/M_PI << std::endl;
             std::cout<<"==========================================="<<std::endl;
@@ -133,15 +143,69 @@ void WithLidar::bbox_callback(const camera_apps_msgs::Masks::ConstPtr& msg)
     }
 }
 
-void WithLidar::calculate_id(int xmin,int xmax)
+void WithLidar::calculate_id_pic(int bbox_min,int size)
 {
+    //calc id from grid x
+    // make id list
+    pic_id_.clear();
+    double lidar_fi_min = 0.0;
+    double lidar_fi_max = 0.0;
+    std::cout << "id : ";
+    for(int i=size-1; i>=0; i--)
+    {
+        int x = bbox_min + masked_pixels_[i];
+        double id_lidar_fi = M_PI * x * 2.0/image_width_;
+        double id_angle = id_lidar_fi - M_PI - M_PI/4.0;
+        int id = -8 * id_angle * 180/M_PI + 720;
+        if(i == 0)
+        {
+            pic_id_min_ = id;
+            lidar_fi_min = id_lidar_fi;
+        }
+        if(i == size-1)
+        {
+            pic_id_max_ = id;
+            lidar_fi_max = id_lidar_fi;
+        }
+        if(id < 0 || scan_line_sum_ < id) continue;
+        pic_id_.push_back(id);
+    }
+    std::cout << "----pic----" << std::endl;
+    std::cout << "id_min : " << pic_id_min_ << std::endl;
+    std::cout << "id_max : " << pic_id_max_ << std::endl;
+    std::cout << "fi_min : " << (lidar_fi_min) * 180/M_PI << std::endl;
+    std::cout << "fi_max : " << (lidar_fi_max) * 180/M_PI << std::endl;
+    double lidar_fi_ave = (lidar_fi_min + lidar_fi_max)/2.0;
+    // double fi_ave = lidar_fi_ave + M_PI/4.0;
+    // if(fi_ave > 2*M_PI) fi_ave -= 2*M_PI;
+    if(lidar_fi_ave > 2*M_PI) lidar_fi_ave -= 2*M_PI;
+    if(lidar_fi_min > 2*M_PI) lidar_fi_min -= 2*M_PI;
+    if(lidar_fi_max > 2*M_PI) lidar_fi_max -= 2*M_PI;
+    //0~360 -> -180 ~ 180
+    // if(fi_ave > M_PI) fi_ave -= 2*M_PI;
+    // if(lidar_fi_ave > M_PI) lidar_fi_ave -= 2*M_PI;
+    double angle = lidar_fi_ave - M_PI - M_PI/4.0;
+    double angle_min = lidar_fi_min - M_PI - M_PI/4.0;
+    double angle_max = lidar_fi_max - M_PI - M_PI/4.0;
+    if(angle < -M_PI) angle += 2*M_PI;
+    angle_.push_back(angle);
+
+}
+
+void WithLidar::calculate_id_box(int xmin,int xmax)
+{
+    std::cout<<"----bbox----"<<std::endl;
     //calc id from grid x
     double lidar_fi_min = M_PI*xmin*2.0/image_width_;
     double lidar_fi_max = M_PI*xmax*2.0/image_width_;
-    // id_min_ = (scan_line_sum_*2/(3*M_PI))*lidar_fi_min - scan_line_sum_/6;
-    // id_max_ = (scan_line_sum_*2/(3*M_PI))*lidar_fi_max - scan_line_sum_/6;
+    // double fi_min = lidar_fi_min + M_PI/4.0;
+    // double fi_max = lidar_fi_max + M_PI/4.0;
+    // if(fi_min > 2*M_PI) fi_min -= 2*M_PI;
+    // if(fi_max > 2*M_PI) fi_max -= 2*M_PI;
     std::cout << "fi_min : " << (lidar_fi_min) * 180/M_PI << std::endl;
     std::cout << "fi_max : " << (lidar_fi_max) * 180/M_PI << std::endl;
+    // std::cout << "id_min : " << id_min_ << std::endl;
+    // std::cout << "id_max : " << id_max_ << std::endl;
     double lidar_fi_ave = (lidar_fi_min + lidar_fi_max)/2.0;
     double fi_ave = lidar_fi_ave + M_PI/4.0;
     if(fi_ave > 2*M_PI) fi_ave -= 2*M_PI;
@@ -154,11 +218,11 @@ void WithLidar::calculate_id(int xmin,int xmax)
     double angle = lidar_fi_ave - M_PI - M_PI/4.0;
     double angle_min = lidar_fi_min - M_PI - M_PI/4.0;
     double angle_max = lidar_fi_max - M_PI - M_PI/4.0;
-    angle_.push_back(angle);
-    id_max_ = -8*angle_min*180/M_PI + 720;
-    id_min_ = -8*angle_max*180/M_PI + 720;
-    std::cout << "id_min : " << id_min_ << std::endl;
-    std::cout << "id_max : " << id_max_ << std::endl;
+    // angle_.push_back(angle);
+    box_id_max_ = -8*angle_min*180/M_PI + 720;
+    box_id_min_ = -8*angle_max*180/M_PI + 720;
+    std::cout << "id_min : " << box_id_min_ << std::endl;
+    std::cout << "id_max : " << box_id_max_ << std::endl;
 
 }
 
@@ -169,23 +233,17 @@ void WithLidar::measure_danda()
     //use masked pixels
     std::vector<double> scan_data;
     scan_data.clear();
-    // for(int i=0;i<masked_pixels_.size();i++)
-    // {
-    //     int j = masked_pixels_[i] + id_min_;
-    //     if(j > id_max_) break;
-    //     if(scan_.ranges[j] > scan_.range_min && scan_.ranges[j] < scan_.range_max)
-    //     {
-    //         scan_data.push_back(scan_.ranges[j]);
-    //         std::cout<<scan_.ranges[j] << " ";
-    //     }
-    // }
-    for(int i=id_min_;i<=id_max_;i++)
+    int id_size = pic_id_.size();
+    for(int i=0;i<=id_size;i++)
     {
-        if(scan_.ranges[i] > scan_.range_min && scan_.ranges[i] < scan_.range_max)
+        int id = pic_id_[i];
+        if(id < 0 || scan_line_sum_ < id) continue;
+        if(scan_.ranges[id] > scan_.range_min && scan_.ranges[id] < scan_.range_max)
         {
-            scan_data.push_back(scan_.ranges[i]);
+            scan_data.push_back(scan_.ranges[id]);
         }
     }
+    std::cout << std::endl;
     if(scan_data.size() == 0) return;
     //sort min to max
     for(int i=0;i<scan_data.size()-1;i++)
@@ -200,14 +258,55 @@ void WithLidar::measure_danda()
             }
         }
     }
-    int lim = 10;
+    int lim = laser_num_;
     if(scan_data.size() < lim) lim = scan_data.size();
     double sum = 0;
     for(int i=0;i<lim;i++)
     {
         sum += scan_data[i];
     }
-    distance_.push_back(sum/lim);
+    double pic_d = sum/lim;
+
+    //use bbox
+    std::vector<double> scan_data_b;
+    scan_data_b.clear();
+    for(int i=box_id_min_;i<=box_id_max_;i++)
+    {
+        if(scan_.ranges[i] > scan_.range_min && scan_.ranges[i] < scan_.range_max)
+        {
+            scan_data_b.push_back(scan_.ranges[i]);
+        }
+    }
+    if(scan_data_b.size() == 0) return;
+    //sort min to max
+    for(int i=0;i<scan_data_b.size()-1;i++)
+    {
+        for(int j=i+1;j<scan_data_b.size();j++)
+        {
+            if(scan_data_b[i] > scan_data_b[j])
+            {
+                double tmp = scan_data_b[i];
+                scan_data_b[i] = scan_data_b[j];
+                scan_data_b[j] = tmp;
+            }
+        }
+    }
+    // std::sort(scan_data.begin(),scan_data.end());
+    //calc average of minimum 10 points
+    double sum_b = 0;
+    int count_b = 0;
+    int lim_b = laser_num_;
+    if(scan_data_b.size() < laser_num_) lim_b = scan_data_b.size();
+    for(int i = 0; i < lim_b; i++)
+    {
+        sum_b += scan_data_b[i];
+        count_b++;
+    }
+    double bbox_d = sum_b / count_b;
+
+    double dist = std::min(pic_d,bbox_d);
+
+    distance_.push_back(dist);
     //calc distance
     //median
     // double distance = scan_data[scan_data.size()/2];
@@ -227,12 +326,14 @@ void WithLidar::measure_danda()
 void WithLidar::get_masked_pixels(cv::Mat img)
 {
     int height = img.rows;
-    int min_h = lower_ * height;
-    int max_h = upper_ * height;
+    int min_h = (1.0-lower_) * height;
+    int max_h = (1.0-upper_) * height;
+    std::cout << "min_h : " << min_h << std::endl;
+    std::cout << "max_h : " << max_h << std::endl;
     //get white pixels
     bool skip = false;
     masked_pixels_.clear();
-    for(int i = min_h; i < max_h; i++)
+    for(int i = max_h; i < min_h; i++)
     {
         for(int j = 0; j < img.cols; j++)
         {
@@ -268,26 +369,42 @@ void WithLidar::get_masked_pixels(cv::Mat img)
 
 void WithLidar::display_distances(int person_num)
 {
+    //draw rectangle laser range alpha = 10
+    int start_x = image_width_/8;
+    int start_y = 0;
+    int end_x = image_width_/8*7;
+    int end_y = 640;
+    cv::Mat roi = input_image_(cv::Rect(0,0,start_x,end_y));
+    cv::Mat color(roi.size(),CV_8UC3,cv::Scalar(0,0,255));
+    double alpha = 0.8;
+    cv::addWeighted(roi,alpha,color,1.0-alpha,0.0,roi);
+    cv::Mat roi2 = input_image_(cv::Rect(end_x,0,image_width_-end_x,end_y));
+    cv::Mat color2(roi2.size(),CV_8UC3,cv::Scalar(0,0,255));
+    cv::addWeighted(roi2,alpha,color2,1.0-alpha,0.0,roi2);
+
     //display distance and angle
-    for(int i=0; i < person_num; i++)
+    if (person_num > 0)
     {
-        std::stringstream ss;
-        // ss << "person_" << i << " d: " << std::fixed << std::setprecision(2) << distance_[i] << " [m] / a: " << angle_[i]*180.0/M_PI - 180 -45;
-        ss << "person_" << i << " d: " << std::fixed << std::setprecision(2) << distance_[i] << " [m] / a: " << angle_[i]*180/M_PI;
-        std::string str = ss.str();
-        cv::putText(input_image_, str, cv::Point(10, 30*(i+1)), cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar(0,0,255), 2, cv::LINE_AA);
-        //put line on scan id
-        double id_x = (id_[i]-b_)/a_;
-        // std::cout << "id_x : " << id_x << std::endl;
-        cv::line(input_image_, cv::Point(id_x,0), cv::Point(id_x,image_msg_.height), cv::Scalar(0,0,255), 2, cv::LINE_AA);
+        for(int i=0; i < person_num; i++)
+        {
+            std::stringstream ss;
+            if(distance_[i]>=0)
+            {
+                ss << "Person" << i << ": " << std::fixed << std::setprecision(2) << distance_[i] << " m , " << angle_[i]*180/M_PI << " deg";
+            }
+            else
+            {
+                ss << "Person" << i << ": OutOfRange, " << std::fixed << std::setprecision(2) << angle_[i]*180/M_PI << " deg";
+            }
+
+            std::string str = ss.str();
+            cv::putText(input_image_, str, cv::Point(10, 30*(i+1)), cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar(255,0,0), 2, cv::LINE_AA);
+        }
     }
 
-    //put line on scan min and max
-    cv::line(input_image_, cv::Point(image_width_/8,60), cv::Point(image_width_/8,image_msg_.height), cv::Scalar(255,0,0), 2, cv::LINE_AA);
-    cv::line(input_image_, cv::Point(image_width_*7/8,0), cv::Point(image_width_*7/8,image_msg_.height), cv::Scalar(255,0,0), 2, cv::LINE_AA);
-
-    //put line on brushee front
-    cv::line(input_image_, cv::Point(image_width_*5/8,0), cv::Point(image_width_*5/8,image_msg_.height), cv::Scalar(0,255,0), 2, cv::LINE_AA);
+    //put line on brushee front and put text "front"
+    cv::putText(input_image_, "front", cv::Point(image_width_*5/8-35,30), cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar(0,255,0), 2, cv::LINE_AA);
+    cv::line(input_image_, cv::Point(image_width_*5/8,50), cv::Point(image_width_*5/8,500), cv::Scalar(0,255,0), 2, cv::LINE_AA);
 
     //publish image
     cv_bridge::CvImage cv_image;
