@@ -105,8 +105,22 @@ void WithLidar::bbox_callback(const camera_apps_msgs::Masks::ConstPtr& msg)
             if(xmax < image_width_/8 || image_width_*7/8 < xmin)
             {
                 calculate_id_pic(bbox.xmin,masked_size);
+                std::cout<<"not in scan angle : " << angle_[person_num]*180/M_PI << "deg" <<std::endl;
                 distance_.push_back(-1.0);
+
+                tf::Quaternion q;
+                q.setRPY(0,0,angle_[person_num]);
+                geometry_msgs::Quaternion quat_msg;
+                tf::quaternionTFToMsg(q,quat_msg);
+
+                geometry_msgs::Pose pose;
+                pose.position.x = 0;
+                pose.position.y = 0;
+                pose.position.z = 0;
+                pose.orientation = quat_msg;
+                person_poses_.poses.push_back(pose);
                 person_num++;
+
                 continue;
             }
             if(xmin < image_width_/8) xmin = image_width_/8;
@@ -123,15 +137,18 @@ void WithLidar::bbox_callback(const camera_apps_msgs::Masks::ConstPtr& msg)
             std::cout << "angle : " << angle_[person_num]*180/M_PI << std::endl;
             std::cout<<"==========================================="<<std::endl;
 
+            //angle to quaternion
+            tf::Quaternion q;
+            q.setRPY(0,0,angle_[person_num]);
+            geometry_msgs::Quaternion quat_msg;
+            tf::quaternionTFToMsg(q,quat_msg);
+
             //to msg
             geometry_msgs::Pose pose;
             pose.position.x = distance_[person_num]*cos(angle_[person_num]) - 0.07;
-            pose.position.y = -distance_[person_num]*sin(angle_[person_num]) - 0.07;
+            pose.position.y = distance_[person_num]*sin(angle_[person_num]) - 0.07;
             pose.position.z = 0;
-            pose.orientation.x = 0;
-            pose.orientation.y = 0;
-            pose.orientation.z = 0;
-            pose.orientation.w = 0;
+            pose.orientation = quat_msg;
             person_poses_.poses.push_back(pose);
 
             person_num++;
@@ -188,7 +205,7 @@ void WithLidar::calculate_id_pic(int bbox_min,int size)
     double angle_min = lidar_fi_min - M_PI - M_PI/4.0;
     double angle_max = lidar_fi_max - M_PI - M_PI/4.0;
     if(angle < -M_PI) angle += 2*M_PI;
-    angle_.push_back(angle);
+    angle_.push_back(-1.0*angle);
 
 }
 
