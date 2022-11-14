@@ -29,7 +29,6 @@ void WithLidar::scan_callback(const sensor_msgs::LaserScan::ConstPtr& msg)
     //check laser num
     scan_line_sum_ = scan_.ranges.size() - 1;
 }
-#include <string.h>
 
 void WithLidar::image_callback(const sensor_msgs::Image::ConstPtr& msg)
 {
@@ -119,8 +118,8 @@ void WithLidar::bbox_callback(const camera_apps_msgs::Masks::ConstPtr& msg)
                 pose.position.z = 0;
                 pose.orientation = quat_msg;
                 person_poses_.poses.push_back(pose);
-                person_num++;
 
+                person_num++;
                 continue;
             }
             if(xmin < image_width_/8) xmin = image_width_/8;

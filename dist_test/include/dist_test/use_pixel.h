@@ -13,6 +13,7 @@
 #include <tf/tf.h>
 
 #include <math.h>
+#include <string.h>
 
 #include "camera_apps_msgs/BoundingBox.h"
 #include "camera_apps_msgs/BoundingBoxes.h"

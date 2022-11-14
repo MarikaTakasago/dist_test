@@ -4,12 +4,14 @@
 #include <ros/ros.h>
 #include <sensor_msgs/LaserScan.h>
 #include <sensor_msgs/Image.h>
-#include <std_msgs/String.h>
 #include <std_msgs/Header.h>
 #include <cv_bridge/cv_bridge.h>
 #include <geometry_msgs/PoseArray.h>
+#include <tf2_ros/transform_listener.h>
+#include <tf/tf.h>
 
 #include <math.h>
+#include <string.h>
 
 #include "camera_apps_msgs/BoundingBox.h"
 #include "camera_apps_msgs/BoundingBoxes.h"
@@ -24,7 +26,7 @@ class WithLidar
     private:
         void scan_callback(const sensor_msgs::LaserScan::ConstPtr& msg);
         void image_callback(const sensor_msgs::Image::ConstPtr& msg);
-        void bbox_callback(const camera_apps_msgs::Masks::ConstPtr& msg);
+        void bbox_callback(const camera_apps_msgs::BoundingBoxes::ConstPtr& msg);
 
         void measure_danda(); // danda = "d"istance "and" "a"ngle
         void calculate_id(int xmin,int xmax);

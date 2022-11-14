@@ -10,7 +10,7 @@ WithLidar::WithLidar() : private_nh_("~")
 
     sub_scan_ = nh_.subscribe("/scan",1,&WithLidar::scan_callback,this);
     sub_image_ = nh_.subscribe("/detected_image",1,&WithLidar::image_callback,this);
-    sub_bbox_ = nh_.subscribe("/masks",1,&WithLidar::bbox_callback,this);
+    sub_bbox_ = nh_.subscribe("/bounding_boxes",1,&WithLidar::bbox_callback,this);
 
     pub_image_ = nh_.advertise<sensor_msgs::Image>("/with_lidar",1);
     pub_poses_ = nh_.advertise<geometry_msgs::PoseArray>("/person_poses",1);
@@ -27,7 +27,6 @@ void WithLidar::scan_callback(const sensor_msgs::LaserScan::ConstPtr& msg)
     //check laser num
     scan_line_sum_ = scan_.ranges.size() - 1;
 }
-#include <string.h>
 
 void WithLidar::image_callback(const sensor_msgs::Image::ConstPtr& msg)
 {
@@ -51,12 +50,12 @@ void WithLidar::image_callback(const sensor_msgs::Image::ConstPtr& msg)
     get_image_ = true;
 }
 
-void WithLidar::bbox_callback(const camera_apps_msgs::Masks::ConstPtr& msg)
+void WithLidar::bbox_callback(const camera_apps_msgs::BoundingBoxes::ConstPtr& msg)
 {
-    masks_ = *msg;
+    bboxes_ = *msg;
     ROS_INFO("receive bbox");
     int person_num = 0;
-    if(masks_.masks.size() == 0)
+    if(bboxes_.bounding_boxes.size() == 0)
     {
         std::cout<<"no person"<<std::endl;
         if(display_) display_distances(0);
@@ -74,10 +73,8 @@ void WithLidar::bbox_callback(const camera_apps_msgs::Masks::ConstPtr& msg)
         person_poses_.poses.clear();
         person_poses_.header.stamp = scan_.header.stamp;
 
-        for(auto mask : masks_.masks)
+        for(auto bbox : bboxes_.bounding_boxes)
         {
-            //get bbox
-            camera_apps_msgs::BoundingBox bbox = mask.bounding_box;
             //if label is not person skip
             if(bbox.label != "person" || bbox.confidence < conf_th_) continue;
             int xmin = bbox.xmin;
@@ -90,6 +87,19 @@ void WithLidar::bbox_callback(const camera_apps_msgs::Masks::ConstPtr& msg)
             {
                 calculate_id(xmin,xmax);
                 distance_.push_back(-1.0);
+
+                tf::Quaternion q;
+                q.setRPY(0,0,angle_[person_num]);
+                geometry_msgs::Quaternion quat_msg;
+                tf::quaternionTFToMsg(q,quat_msg);
+
+                geometry_msgs::Pose pose;
+                pose.position.x = 0;
+                pose.position.y = 0;
+                pose.position.z = 0;
+                pose.orientation = quat_msg;
+                person_poses_.poses.push_back(pose);
+
                 person_num++;
                 continue;
             }
@@ -106,15 +116,18 @@ void WithLidar::bbox_callback(const camera_apps_msgs::Masks::ConstPtr& msg)
             std::cout << "angle : " << angle_[person_num]*180/M_PI << std::endl;
             std::cout<<"==========================================="<<std::endl;
 
+            //angle to quaternion
+            tf::Quaternion q;
+            q.setRPY(0,0,angle_[person_num]);
+            geometry_msgs::Quaternion quat_msg;
+            tf::quaternionTFToMsg(q,quat_msg);
+
             //to msg
             geometry_msgs::Pose pose;
             pose.position.x = distance_[person_num]*cos(angle_[person_num]) - 0.07;
-            pose.position.y = -distance_[person_num]*sin(angle_[person_num]) - 0.07;
+            pose.position.y = distance_[person_num]*sin(angle_[person_num]) - 0.07;
             pose.position.z = 0;
-            pose.orientation.x = 0;
-            pose.orientation.y = 0;
-            pose.orientation.z = 0;
-            pose.orientation.w = 0;
+            pose.orientation = quat_msg;
             person_poses_.poses.push_back(pose);
 
             person_num++;
@@ -151,7 +164,7 @@ void WithLidar::calculate_id(int xmin,int xmax)
     double angle = lidar_fi_ave - M_PI - M_PI/4.0;
     double angle_min = lidar_fi_min - M_PI - M_PI/4.0;
     double angle_max = lidar_fi_max - M_PI - M_PI/4.0;
-    angle_.push_back(angle);
+    angle_.push_back(-1.0*angle);
     id_max_ = -8*angle_min*180/M_PI + 720;
     id_min_ = -8*angle_max*180/M_PI + 720;
     std::cout << "id_min : " << id_min_ << std::endl;
