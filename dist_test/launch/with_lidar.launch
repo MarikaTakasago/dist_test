@@ -6,4 +6,5 @@
         <param name="display" value="$(arg display)" />
         <param name="conf_th" value="0.5" />
     </node>
+    <include file="$(find camera_apps)/launch/object_detector_nodelet.launch"/>
 </launch>
