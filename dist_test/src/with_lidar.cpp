@@ -18,6 +18,12 @@ WithLidar::WithLidar() : private_nh_("~")
     id_min_ = id_max_ = 0;
     person_poses_.header.frame_id = "base_link";
     person_poses_.poses.resize(0);
+
+    get_scan_ = false;
+    get_image_ = false;
+    get_bbox_ = false;
+    std::cout << "flags :" << get_scan_ << get_image_ << get_bbox_ << std::endl;
+    image_width_ = image_height_ = 0;
 }
 
 void WithLidar::scan_callback(const sensor_msgs::LaserScan::ConstPtr& msg)
@@ -26,6 +32,7 @@ void WithLidar::scan_callback(const sensor_msgs::LaserScan::ConstPtr& msg)
     get_scan_ = true;
     //check laser num
     scan_line_sum_ = scan_.ranges.size() - 1;
+    ROS_INFO("get_scan");
 }
 
 void WithLidar::image_callback(const sensor_msgs::Image::ConstPtr& msg)
@@ -47,7 +54,12 @@ void WithLidar::image_callback(const sensor_msgs::Image::ConstPtr& msg)
         return;
     }
     input_image_ = cv_ptr->image;
-    get_image_ = true;
+    if(image_height_ != 0 && image_width_ != 0)
+    {
+        get_image_ = true;
+        ROS_INFO("get_image");
+    }
+    else get_image_ = false;
 }
 
 void WithLidar::bbox_callback(const camera_apps_msgs::BoundingBoxes::ConstPtr& msg)
@@ -57,8 +69,9 @@ void WithLidar::bbox_callback(const camera_apps_msgs::BoundingBoxes::ConstPtr& m
     int person_num = 0;
     if(bboxes_.bounding_boxes.size() == 0)
     {
-        std::cout<<"no person"<<std::endl;
-        if(display_) display_distances(0);
+        ROS_INFO("no person");
+        get_bbox_ = false;
+        if(get_image_ && display_) display_distances(0);
         return;
     }
 
@@ -229,16 +242,18 @@ void WithLidar::measure_danda()
 
 void WithLidar::display_distances(int person_num)
 {
-    //draw rectangle laser range alpha = 10
+    //draw rectangle laser range alpha = 80%
+    double alpha = 0.8;
     int start_x = image_width_/8;
     int start_y = 0;
     int end_x = image_width_/8*7;
-    int end_y = 640;
+    int end_y = image_height_;
+    std::cout << "start_x, start_y, end_x, end_y : " << start_x << " " << start_y << " " << end_x << " " << end_y << std::endl;
     cv::Mat roi = input_image_(cv::Rect(0,0,start_x,end_y));
     cv::Mat color(roi.size(),CV_8UC3,cv::Scalar(0,0,255));
-    double alpha = 0.8;
     cv::addWeighted(roi,alpha,color,1.0-alpha,0.0,roi);
-    cv::Mat roi2 = input_image_(cv::Rect(end_x,0,image_width_-end_x,end_y));
+    // cv::Mat roi2 = input_image_(cv::Rect(end_x,0,image_width_-end_x,end_y));
+    cv::Mat roi2 = input_image_(cv::Rect(end_x,0,image_width_/8,end_y));
     cv::Mat color2(roi2.size(),CV_8UC3,cv::Scalar(0,0,255));
     cv::addWeighted(roi2,alpha,color2,1.0-alpha,0.0,roi2);
 

@@ -58,7 +58,7 @@ void WithLidar::bbox_callback(const camera_apps_msgs::Masks::ConstPtr& msg)
     if(masks_.masks.size() == 0)
     {
         std::cout<<"no person"<<std::endl;
-        if(display_) display_distances(0);
+        if(get_image_ && display_) display_distances(0);
         return;
     }
 
