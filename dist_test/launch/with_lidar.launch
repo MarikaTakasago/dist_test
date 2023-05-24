@@ -2,9 +2,11 @@
 
 <launch>
     <arg name="display" default="true"/>
-    <node pkg="dist_test" type="with_lidar" name="with_lidar" output="screen">
+    <node pkg="dist_test" type="with_lidar" name="with_lidar" output="log">
         <param name="display" value="$(arg display)" />
         <param name="conf_th" value="0.5" />
+        <remap from ="with_lidar" to="/with_lidar_edit"/>
+        <remap from ="person_poses" to="person_poses_edit"/>
     </node>
     <include file="$(find camera_apps)/launch/object_detector_nodelet.launch"/>
 </launch>

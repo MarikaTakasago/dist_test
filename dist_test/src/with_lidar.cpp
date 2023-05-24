@@ -229,6 +229,22 @@ void WithLidar::measure_danda()
     }
     std::cout << std::endl;
     double dist = sum / count;
+    double q1 = scan_data[lim/4];
+    double q3 = scan_data[lim*3/4];
+    double q_delta = q3 - q1;
+    double min = q1 - 1.5*q_delta;
+    double max = q3 + 1.5*q_delta;
+    double edit_sum = 0;
+    int edit_count = 0;
+    for(int i = 0; i < lim; i++)
+    {
+        if(min <= scan_data[i] && scan_data[i] <= max)
+        {
+            edit_sum += scan_data[i];
+            edit_count++;
+        }
+    }
+    dist = edit_sum / edit_count;
     // std::cout << "dist : " << sum << "/" << (laser_num_-skip) << "=" << dist << std::endl;
     distance_.push_back(dist);
 

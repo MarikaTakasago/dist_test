@@ -4,7 +4,6 @@
 #include <ros/ros.h>
 #include <sensor_msgs/LaserScan.h>
 #include <sensor_msgs/Image.h>
-#include <std_msgs/String.h>
 #include <std_msgs/Header.h>
 #include <cv_bridge/cv_bridge.h>
 #include <geometry_msgs/PoseArray.h>

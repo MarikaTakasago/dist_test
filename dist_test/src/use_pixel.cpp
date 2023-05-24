@@ -55,14 +55,15 @@ void WithLidar::bbox_callback(const camera_apps_msgs::Masks::ConstPtr& msg)
 {
     masks_ = *msg;
     ROS_INFO("receive bbox");
+    bool get_person = false;
     if(masks_.masks.size() == 0)
     {
         std::cout<<"no person"<<std::endl;
         if(get_image_ && display_) display_distances(0);
-        return;
     }
+    else get_person = true;
 
-    if(get_image_ && get_scan_)
+    if(get_image_ && get_scan_ && get_person)
     {
         get_bbox_ = true;
 

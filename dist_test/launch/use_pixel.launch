@@ -1,15 +1,15 @@
 <?xml version="1.0"?>
 <launch>
-    <arg name="display" default="true"/>
-    <arg name="upper" default="0.3"/>
-    <arg name="lower" default="0.1"/>
-    <arg name="conf" default="0.5"/>
-    <node pkg="dist_test" type="use_pixel" name="use_pixel" output="screen">
-        <param name="display" value="$(arg display)"/>
-        <param name="upper" value="$(arg upper)"/>
-        <param name="lower" value="$(arg lower)"/>
-        <param name="conf" value="$(arg conf)"/>
-    </node>
+    <!-- <arg name="display" default="true"/> -->
+    <!-- <arg name="upper" default="0.3"/> -->
+    <!-- <arg name="lower" default="0.1"/> -->
+    <!-- <arg name="conf" default="0.5"/> -->
+    <!-- <node pkg="dist_test" type="use_pixel" name="use_pixel" output="screen"> -->
+    <!--     <param name="display" value="$(arg display)"/> -->
+    <!--     <param name="upper" value="$(arg upper)"/> -->
+    <!--     <param name="lower" value="$(arg lower)"/> -->
+    <!--     <param name="conf" value="$(arg conf)"/> -->
+    <!-- </node> -->
     <include file="$(find camera_apps)/launch/mask_rcnn2_node.launch"/>
 </launch>
 
