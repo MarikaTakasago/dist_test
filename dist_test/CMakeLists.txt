@@ -124,6 +124,7 @@ catkin_package(
 include_directories(
   include
   ${catkin_INCLUDE_DIRS}
+  ${OpenCV_INCLUDE_DIRS}
 )
 
 ## Declare a C++ library
@@ -162,10 +163,10 @@ add_dependencies(use_pixel ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED
 # target_link_libraries(${PROJECT_NAME}_node
 #   ${catkin_LIBRARIES}
 # )
-target_link_libraries(dist_test ${catkin_LIBRARIES})
-target_link_libraries(with_lidar ${catkin_LIBRARIES})
-target_link_libraries(with_lidar_mf ${catkin_LIBRARIES})
-target_link_libraries(use_pixel ${catkin_LIBRARIES})
+target_link_libraries(dist_test ${catkin_LIBRARIES} ${OpenCV_LIBRARIES})
+target_link_libraries(with_lidar ${catkin_LIBRARIES} ${OpenCV_LIBRARIES})
+target_link_libraries(with_lidar_mf ${catkin_LIBRARIES} ${OpenCV_LIBRARIES})
+target_link_libraries(use_pixel ${catkin_LIBRARIES} ${OpenCV_LIBRARIES})
 
 #############
 ## Install ##

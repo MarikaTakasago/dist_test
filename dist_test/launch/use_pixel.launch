@@ -10,7 +10,7 @@
         <param name="lower" value="$(arg lower)"/>
         <param name="conf" value="$(arg conf)"/>
     </node>
-    <include file="$(find camera_apps)/launch/mask_rcnn2_node.launch"/>
+    <include file="$(find camera_apps)/launch/mask_rcnn2_node_only.launch"/>
     <include file="$(find theta_s_ros)/launch/theta_s_ros.launch"/>
 </launch>
 
