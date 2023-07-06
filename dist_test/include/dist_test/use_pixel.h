@@ -11,6 +11,9 @@
 #include <tf2/utils.h>
 #include <tf/tf.h>
 
+#include <message_filters/subscriber.h>
+#include <message_filters/sync_policies/approximate_time.h>
+
 #include <math.h>
 #include <string.h>
 
@@ -23,11 +26,12 @@ class WithLidar
 {
     public:
         WithLidar();
+        ~WithLidar();
 
     private:
-        void scan_callback(const sensor_msgs::LaserScan::ConstPtr& msg);
         void image_callback(const sensor_msgs::Image::ConstPtr& msg);
-        void bbox_callback(const camera_apps_msgs::Masks::ConstPtr& msg);
+        void synchro_callback(const sensor_msgs::LaserScanConstPtr &scan_msg,
+                const camera_apps_msgs::MasksConstPtr& masks_msg);
 
         void measure_danda(); // danda = "d"istance "and" "a"ngle
         void calculate_id_pic(int bboxmin,int size);
@@ -76,11 +80,15 @@ class WithLidar
         //ros
         ros::NodeHandle nh_;
         ros::NodeHandle private_nh_;
-        ros::Subscriber sub_scan_;
         ros::Subscriber sub_image_;
-        ros::Subscriber sub_bbox_;
         ros::Publisher pub_poses_;
         ros::Publisher pub_image_; //for debug
+        
+        typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::LaserScan,
+                camera_apps_msgs::Masks> MySyncPolicy;
+        message_filters::Subscriber<sensor_msgs::LaserScan> *scan_sub_;
+        message_filters::Subscriber<camera_apps_msgs::Masks> *masks_sub_;
+        message_filters::Synchronizer<MySyncPolicy> *synchro_;
 
         //msg
         sensor_msgs::LaserScan scan_;

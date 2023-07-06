@@ -1,6 +1,0 @@
--I/usr/include/c++/9
--I/usr/include/x86_64-linux-gnu/c++/9
--I/opt/ros/noetic/include
--I/home/amsl/catkin_ws/devel/include
--I/home/amsl/catkin_ws/src/vision-based_navigation/relative_navigator/include
--I/home/amsl/opencv/modules/core/include
