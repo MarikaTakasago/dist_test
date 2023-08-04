@@ -1,1 +1,2 @@
-.json
+*.json
+compile_flags.txt

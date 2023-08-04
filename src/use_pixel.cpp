@@ -10,16 +10,16 @@ WithLidar::WithLidar() : private_nh_("~")
     private_nh_.param("upper", upper_, 0.3);
     private_nh_.param("lower", lower_, 0.1);
 
-    sub_image_ = nh_.subscribe("/detected_image",1,&WithLidar::image_callback,this);
+    sub_image_ = nh_.subscribe("/mask_rcnn/detected_image",1,&WithLidar::image_callback,this);
 
     scan_sub_ = new message_filters::Subscriber<sensor_msgs::LaserScan>(nh_, "/scan", 5);
-    masks_sub_ = new message_filters::Subscriber<camera_apps_msgs::Masks>(nh_, "/masks", 5);
+    masks_sub_ = new message_filters::Subscriber<camera_apps_msgs::Masks>(nh_, "/mask_rcnn/masks", 5);
     // MySyncPolicyの引数はおそらくためとくmessageの数
     synchro_ = new message_filters::Synchronizer<MySyncPolicy>(MySyncPolicy(30), *scan_sub_, *masks_sub_);  
     synchro_->registerCallback(&WithLidar::synchro_callback, this);
 
-    pub_image_ = nh_.advertise<sensor_msgs::Image>("/with_lidar",1);
-    pub_poses_ = nh_.advertise<geometry_msgs::PoseArray>("/person_poses",1);
+    pub_image_ = nh_.advertise<sensor_msgs::Image>("/use_pixel/with_lidar",1);
+    pub_poses_ = nh_.advertise<geometry_msgs::PoseArray>("/use_pixel/person_poses",1);
 
     pic_id_min_ = pic_id_max_ = box_id_min_ = box_id_max_ = 0;
     person_poses_.header.frame_id = "base_link";
