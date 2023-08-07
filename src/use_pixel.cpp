@@ -121,12 +121,13 @@ void WithLidar::synchro_callback(const sensor_msgs::LaserScanConstPtr &scan_msg,
                 geometry_msgs::Quaternion quat_msg;
                 tf::quaternionTFToMsg(q,quat_msg);
 
-                geometry_msgs::Pose pose;
-                pose.position.x = 0;
-                pose.position.y = 0;
-                pose.position.z = 0;
-                pose.orientation = quat_msg;
-                person_poses_.poses.push_back(pose);
+                // ??
+                // geometry_msgs::Pose pose;
+                // pose.position.x = 0;
+                // pose.position.y = 0;
+                // pose.position.z = 0;
+                // pose.orientation = quat_msg;
+                // person_poses_.poses.push_back(pose);
 
                 person_num++;
                 continue;
