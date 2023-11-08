@@ -2,18 +2,21 @@
 
 WithLidar::WithLidar() : private_nh_("~")
 {
-    private_nh_.param("scan_line_sum", scan_line_sum_, 2161);
-    private_nh_.param("scan_angle", scan_angle_, 270);
-    private_nh_.param("laser_num", laser_num_, 10);
-    private_nh_.param("display", display_, false);
-    private_nh_.param("conf_th_", conf_th_, 0.5);
-    private_nh_.param("upper", upper_, 0.3);
-    private_nh_.param("lower", lower_, 0.1);
+    private_nh_.param<int>("scan_line_sum", param_.scan_line_sum, 2161);
+    private_nh_.param<int>("scan_angle", param_.scan_angle, 270);
+    private_nh_.param<int>("laser_num", param_.laser_num, 10);
+    private_nh_.param<bool>("display", param_.display, false);
+    private_nh_.param<float>("conf_th", param_.conf_th, 0.5);
+    private_nh_.param<float>("upper", param_.upper, 0.3);
+    private_nh_.param<float>("lower", param_.lower, 0.1);
+    private_nh_.param<std::string>("detected_image_topic_name", param_.detected_image_topic_name,"/mask_rcnn/detected_image");
+    private_nh_.param<std::string>("masks_topic_name", param_.masks_topic_name,"/mask_rcnn/masks");
+    private_nh_.param<std::string>("scan_topic_name", param_.scan_topic_name,"/scan");
 
-    sub_image_ = nh_.subscribe("/mask_rcnn/detected_image",1,&WithLidar::image_callback,this);
+    sub_image_ = nh_.subscribe(param_.detected_image_topic_name,1,&WithLidar::image_callback,this);
 
-    scan_sub_ = new message_filters::Subscriber<sensor_msgs::LaserScan>(nh_, "/scan", 5);
-    masks_sub_ = new message_filters::Subscriber<camera_apps_msgs::Masks>(nh_, "/mask_rcnn/masks", 5);
+    scan_sub_ = new message_filters::Subscriber<sensor_msgs::LaserScan>(nh_, param_.scan_topic_name, 5);
+    masks_sub_ = new message_filters::Subscriber<camera_apps_msgs::Masks>(nh_, param_.masks_topic_name, 5);
     // MySyncPolicyの引数はおそらくためとくmessageの数
     synchro_ = new message_filters::Synchronizer<MySyncPolicy>(MySyncPolicy(30), *scan_sub_, *masks_sub_);  
     synchro_->registerCallback(&WithLidar::synchro_callback, this);
@@ -59,7 +62,7 @@ void WithLidar::synchro_callback(const sensor_msgs::LaserScanConstPtr &scan_msg,
     scan_ = *scan_msg;
     get_scan_ = true;
     //check laser num
-    scan_line_sum_ = scan_.ranges.size() - 1;
+    param_.scan_line_sum = scan_.ranges.size() - 1;
 
     // masks recieve process
     masks_ = *masks_msg;
@@ -67,7 +70,7 @@ void WithLidar::synchro_callback(const sensor_msgs::LaserScanConstPtr &scan_msg,
     if(masks_.masks.size() == 0)
     {
         // std::cout<<"no person"<<std::endl;
-        if(get_image_ && display_) display_distances(0);
+        if(get_image_ && param_.display) display_distances(0);
     }
     else get_person = true;
 
@@ -105,7 +108,7 @@ void WithLidar::synchro_callback(const sensor_msgs::LaserScanConstPtr &scan_msg,
             camera_apps_msgs::BoundingBox bbox = mask.bounding_box;
 
             //if label is not person skip
-            if(bbox.label != "person" || bbox.confidence < conf_th_) continue;
+            if(bbox.label != "person" || bbox.confidence < param_.conf_th) continue;
 
             //if person is not in the scan angle : skip
             int xmin = bbox.xmin+masked_pixels_[0];
@@ -160,7 +163,7 @@ void WithLidar::synchro_callback(const sensor_msgs::LaserScanConstPtr &scan_msg,
 
             person_num++;
         }
-        if(display_) display_distances(person_num);
+        if(param_.display) display_distances(person_num);
         //pub poses
         pub_poses_.publish(person_poses_);
 
@@ -191,7 +194,7 @@ void WithLidar::calculate_id_pic(int bbox_min,int size)
             pic_id_max_ = id;
             lidar_fi_max = id_lidar_fi;
         }
-        if(id < 0 || scan_line_sum_ < id) continue;
+        if(id < 0 || param_.scan_line_sum < id) continue;
         pic_id_.push_back(id);
     }
     // std::cout << "----pic----" << std::endl;
@@ -260,7 +263,7 @@ void WithLidar::measure_danda()
     for(int i=0;i<=id_size;i++)
     {
         int id = pic_id_[i];
-        if(id < 0 || scan_line_sum_ < id) continue;
+        if(id < 0 || param_.scan_line_sum < id) continue;
         if(scan_.ranges[id] > scan_.range_min && scan_.ranges[id] < scan_.range_max)
         {
             scan_data.push_back(scan_.ranges[id]);
@@ -280,7 +283,7 @@ void WithLidar::measure_danda()
             }
         }
     }
-    int lim = laser_num_;
+    int lim = param_.laser_num;
     if(scan_data.size() < lim) lim = scan_data.size();
     double sum = 0;
     for(int i=0;i<lim;i++)
@@ -317,8 +320,8 @@ void WithLidar::measure_danda()
     //calc average of minimum 10 points
     double sum_b = 0;
     int count_b = 0;
-    int lim_b = laser_num_;
-    if(scan_data_b.size() < laser_num_) lim_b = scan_data_b.size();
+    int lim_b = param_.laser_num;
+    if(scan_data_b.size() < param_.laser_num) lim_b = scan_data_b.size();
     for(int i = 0; i < lim_b; i++)
     {
         sum_b += scan_data_b[i];
@@ -348,8 +351,8 @@ void WithLidar::measure_danda()
 void WithLidar::get_masked_pixels(cv::Mat img)
 {
     int height = img.rows;
-    int min_h = (1.0-lower_) * height;
-    int max_h = (1.0-upper_) * height;
+    int min_h = (1.0-param_.lower) * height;
+    int max_h = (1.0-param_.upper) * height;
     // std::cout << "min_h : " << min_h << std::endl;
     // std::cout << "max_h : " << max_h << std::endl;
     //get white pixels

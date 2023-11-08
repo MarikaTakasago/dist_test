@@ -1,0 +1,11 @@
+scan_line_sum: 2161
+scan_angle: 270
+laser_num: 10
+display: true
+conf_th: 0.5
+upper: 0.3
+lower: 0.1
+
+detected_image_topic_name: /mask_rcnn/detected_image
+masks_topic_name: /mask_rcnn/masks
+scan_topic_name: /scan
