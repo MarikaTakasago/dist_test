@@ -8,4 +8,5 @@ lower: 0.1
 
 detected_image_topic_name: /mask_rcnn/detected_image
 masks_topic_name: /mask_rcnn/masks
-scan_topic_name: /scan
+# scan_topic_name: /scan
+scan_topic_name: /disturbing_points_detector/filtered_laser
