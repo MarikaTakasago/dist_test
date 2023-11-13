@@ -62,7 +62,7 @@ void WithLidar::synchro_callback(const sensor_msgs::LaserScanConstPtr &scan_msg,
     scan_ = *scan_msg;
     get_scan_ = true;
     //check laser num
-    param_.scan_line_sum = scan_.ranges.size() - 1;
+    param_.scan_line_sum = scan_.ranges.size() - 1; // 何をしている？
 
     // masks recieve process
     masks_ = *masks_msg;
@@ -74,100 +74,108 @@ void WithLidar::synchro_callback(const sensor_msgs::LaserScanConstPtr &scan_msg,
     }
     else get_person = true;
 
-    if(get_image_ && get_scan_ && get_person)
+    if(!(get_image_ && get_scan_ && get_person)) return;  
+
+    get_bbox_ = true;
+
+    //reset vector and counter
+    int person_num = 0;
+    distance_.clear();
+    angle_.clear();
+    person_poses_.poses.clear();
+    person_poses_.header.stamp = scan_.header.stamp;
+
+    for(auto mask : masks_.masks)
     {
-        get_bbox_ = true;
-
-        //reset vector and counter
-        int person_num = 0;
-        distance_.clear();
-        angle_.clear();
-        person_poses_.poses.clear();
-        person_poses_.header.stamp = scan_.header.stamp;
-
-        for(auto mask : masks_.masks)
+        //get pixel
+        mask_image_msg = mask.mask;
+        //to cv image
+        cv_bridge::CvImagePtr cv_ptr;
+        try
         {
-            //get pixel
-            mask_image_msg = mask.mask;
-            //to cv image
-            cv_bridge::CvImagePtr cv_ptr;
-            try
-            {
-                cv_ptr = cv_bridge::toCvCopy(mask_image_msg,sensor_msgs::image_encodings::MONO8);
-            }
-            catch(cv_bridge::Exception& e)
-            {
-                ROS_ERROR("cv_bridge exception: %s", e.what());
-                return;
-            }
-            mask_image_ = cv_ptr->image;
-            get_masked_pixels(mask_image_);
-            int masked_size = masked_pixels_.size();
+            cv_ptr = cv_bridge::toCvCopy(mask_image_msg,sensor_msgs::image_encodings::MONO8);
+        }
+        catch(cv_bridge::Exception& e)
+        {
+            ROS_ERROR("cv_bridge exception: %s", e.what());
+            return;
+        }
+        mask_image_ = cv_ptr->image;
+        get_masked_pixels(mask_image_);
+        int masked_size = masked_pixels_.size();
 
-            //get bbox
-            camera_apps_msgs::BoundingBox bbox = mask.bounding_box;
+        //get bbox
+        camera_apps_msgs::BoundingBox bbox = mask.bounding_box;
 
-            //if label is not person skip
-            if(bbox.label != "person" || bbox.confidence < param_.conf_th) continue;
+        //if label is not person skip
+        if(bbox.label != "person" || bbox.confidence < param_.conf_th) continue;
 
-            //if person is not in the scan angle : skip
-            int xmin = bbox.xmin+masked_pixels_[0];
-            int xmax = bbox.xmin+masked_pixels_[masked_size-1];
-            if(xmax < image_width_/8 || image_width_*7/8 < xmin)
-            {
-                calculate_id_pic(bbox.xmin,masked_size);
-                // std::cout<<"not in scan angle : " << angle_[person_num]*180/M_PI << "deg" <<std::endl;
-                distance_.push_back(-1.0);
-
-                tf::Quaternion q;
-                q.setRPY(0,0,angle_[person_num]);
-                geometry_msgs::Quaternion quat_msg;
-                tf::quaternionTFToMsg(q,quat_msg);
-
-                // ??
-                // geometry_msgs::Pose pose;
-                // pose.position.x = 0;
-                // pose.position.y = 0;
-                // pose.position.z = 0;
-                // pose.orientation = quat_msg;
-                // person_poses_.poses.push_back(pose);
-
-                person_num++;
-                continue;
-            }
-            if(xmin < image_width_/8) xmin = image_width_/8;
-            if(image_width_*7/8 < xmax) xmax = image_width_*7/8;
-
+        //if person is not in the scan angle : skip
+        int xmin = bbox.xmin+masked_pixels_[0];
+        int xmax = bbox.xmin+masked_pixels_[masked_size-1];
+        if(xmax < image_width_/8 || image_width_*7/8 < xmin)
+        {
             calculate_id_pic(bbox.xmin,masked_size);
-            calculate_id_box(bbox.xmin,bbox.xmax);
-            measure_danda(); //calculate distance and angle
+            // std::cout<<"not in scan angle : " << angle_[person_num]*180/M_PI << "deg" <<std::endl;
+            distance_.push_back(-1.0);
 
-            // std::cout << "x range : " << xmin << "," << xmax<< std::endl;
-            // std::cout << "scan_id : " << (pic_id_min_ + pic_id_max_)/2.0 << std::endl;
-            // std::cout << "distance : " << distance_[person_num] << std::endl;
-            // std::cout << "angle : " << angle_[person_num]*180/M_PI << std::endl;
-
-            //angle to quaternion
             tf::Quaternion q;
             q.setRPY(0,0,angle_[person_num]);
             geometry_msgs::Quaternion quat_msg;
             tf::quaternionTFToMsg(q,quat_msg);
 
-            //to msg
-            geometry_msgs::Pose pose;
-            pose.position.x = distance_[person_num]*cos(angle_[person_num]) - 0.07;
-            pose.position.y = distance_[person_num]*sin(angle_[person_num]) - 0.07;
-            pose.position.z = 0;
-            pose.orientation = quat_msg;
-            person_poses_.poses.push_back(pose);
+            // ??
+            // geometry_msgs::Pose pose;
+            // pose.position.x = 0;
+            // pose.position.y = 0;
+            // pose.position.z = 0;
+            // pose.orientation = quat_msg;
+            // person_poses_.poses.push_back(pose);
 
             person_num++;
+            continue;
         }
-        if(param_.display) display_distances(person_num);
-        //pub poses
-        pub_poses_.publish(person_poses_);
+        if(xmin < image_width_/8) xmin = image_width_/8;
+        if(image_width_*7/8 < xmax) xmax = image_width_*7/8;
 
+        calculate_id_pic(bbox.xmin,masked_size);
+        calculate_id_box(bbox.xmin,bbox.xmax);
+        measure_danda(); //calculate distance and angle
+
+        // std::cout << "x range : " << xmin << "," << xmax<< std::endl;
+        // std::cout << "scan_id : " << (pic_id_min_ + pic_id_max_)/2.0 << std::endl;
+        // std::cout << "distance : " << distance_[person_num] << std::endl;
+        // std::cout << "angle : " << angle_[person_num]*180/M_PI << std::endl;
+
+        //angle to quaternion
+        tf::Quaternion q;
+        q.setRPY(0,0,angle_[person_num]);
+        geometry_msgs::Quaternion quat_msg;
+        tf::quaternionTFToMsg(q,quat_msg);
+
+
+        // std::cout << "check1\n";
+        //to msg
+        // if(scan_.ranges[id] > scan_.range_min && scan_.ranges[id] < scan_.range_max)
+        geometry_msgs::Pose pose;
+        // pose.position.x = distance_[person_num]*cos(angle_[person_num]) - 0.07;//?
+        // pose.position.y = distance_[person_num]*sin(angle_[person_num]) - 0.07;
+        pose.position.x = distance_[person_num]*cos(angle_[person_num]);
+        pose.position.y = distance_[person_num]*sin(angle_[person_num]);
+        pose.position.z = 0;
+        pose.orientation = quat_msg;
+
+        // その場しのぎ
+        if(distance_[person_num] > scan_.range_min && distance_[person_num] < scan_.range_max)
+            person_poses_.poses.push_back(pose);
+        // std::cout << "check2\n";
+
+        person_num++;
     }
+    if(param_.display) display_distances(person_num);
+    //pub poses
+    pub_poses_.publish(person_poses_);
+
 }
 
 void WithLidar::calculate_id_pic(int bbox_min,int size)
@@ -264,12 +272,15 @@ void WithLidar::measure_danda()
     {
         int id = pic_id_[i];
         if(id < 0 || param_.scan_line_sum < id) continue;
-        if(scan_.ranges[id] > scan_.range_min && scan_.ranges[id] < scan_.range_max)
+        // if(scan_.ranges[id] > scan_.range_min && scan_.ranges[id] < scan_.range_max)
+        if(true)
         {
             scan_data.push_back(scan_.ranges[id]);
         }
     }
+    // std::cout << "hoge\n";
     if(scan_data.size() == 0) return;
+    // std::cout << "scan_data_size: " << scan_data.size() << std::endl;
     //sort min to max
     for(int i=0;i<scan_data.size()-1;i++)
     {
@@ -297,7 +308,8 @@ void WithLidar::measure_danda()
     scan_data_b.clear();
     for(int i=box_id_min_;i<=box_id_max_;i++)
     {
-        if(scan_.ranges[i] > scan_.range_min && scan_.ranges[i] < scan_.range_max)
+        // if(scan_.ranges[id] > scan_.range_min && scan_.ranges[id] < scan_.range_max)
+        if(true)
         {
             scan_data_b.push_back(scan_.ranges[i]);
         }

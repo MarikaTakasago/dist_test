@@ -75,8 +75,8 @@ class WithLidar
         std::vector<double> distance_;
         std::vector<double> angle_;
 
-        double a_;
-        double b_;
+        // double a_;
+        // double b_;
 
         //mask image
         cv::Mat mask_image_;
