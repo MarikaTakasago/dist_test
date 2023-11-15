@@ -39,7 +39,7 @@ class WithLidar
         int image_height_;
         int image_center_x_;
 
-        int scan_hight_;
+        // int scan_hight_;
         int scan_line_sum_;
         int scan_angle_;
         int id_max_;
