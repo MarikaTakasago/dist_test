@@ -63,7 +63,6 @@ std::vector<int> WithLidar::calc_most_masked_col_idxs(const cv::Mat& mask, int r
         pairs_of_count_and_idx.push_back({count, position[1]});
     });
 
-
     // vector<pair>のソートは第一要素-->第二要素の順でソートされる
     // マスクされたピクセル数に関して降順でsortする
     std::sort(pairs_of_count_and_idx.begin(), pairs_of_count_and_idx.end(),
@@ -139,12 +138,12 @@ std::optional<geometry_msgs::Pose> WithLidar::calc_pose_from_angles(
 std::optional<std::pair<float, float>> WithLidar::calc_point_from_angle(
         const sensor_msgs::LaserScan& scan, float angle)
 {
-    if(angle < scan.angle_min || angle > scan.angle_max) return std::nullopt;
+    if(!(angle >= scan.angle_min && angle <= scan.angle_max)) return std::nullopt;
 
     // angleがranges[]のどこに対応するか計算する  
     int idx_at_ranges = std::min((int)((angle - scan.angle_min) / scan.angle_increment), (int)scan.ranges.size() - 1);
     float range = scan.ranges[idx_at_ranges];
-    if(range < scan.range_min || range > scan.range_max || !std::isfinite(range)) return std::nullopt;
+    if(!(range >= scan.range_min && range <= scan.range_max)) return std::nullopt;
 
     return std::make_pair(range * std::cos(angle), range * std::sin(angle));
 }

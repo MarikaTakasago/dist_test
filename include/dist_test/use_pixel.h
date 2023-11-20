@@ -1,12 +1,10 @@
 #ifndef WITH_LIDAR_H
 #define WITH_LIDAR_H
 
-#include "geometry_msgs/PoseStamped.h"
 #include <opencv2/core/mat.hpp>
 #include <ros/ros.h>
 #include <sensor_msgs/LaserScan.h>
 #include <sensor_msgs/Image.h>
-// #include <std_msgs/Header.h>
 #include <geometry_msgs/PoseArray.h>
 #include <tf2_ros/transform_listener.h>
 #include <tf2/utils.h>
@@ -38,8 +36,6 @@ class WithLidar
         {
             int referenced_laser_num;
             float offset_angle_camera_to_lidar;
-
-
             std::string scan_topic_name;
             std::string masks_topic_name;
         };
@@ -58,10 +54,6 @@ class WithLidar
         static std::optional<cv::Mat> convert_img_msg_to_cv(const sensor_msgs::Image& img_msg);
 
         Param param_;
-
-        //msg
-        // sensor_msgs::LaserScan scan_;
-        // camera_apps_msgs::Masks masks_;
         
         typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::LaserScan,
                 camera_apps_msgs::Masks> MySyncPolicy;
