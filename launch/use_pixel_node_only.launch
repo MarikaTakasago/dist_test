@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<launch>
+    <node pkg="dist_test" type="use_pixel" name="use_pixel" output="screen">
+        <rosparam file="$(find dist_test)/config/param/use_pixel.yaml" command="load"/>
+    </node>
+</launch>
+

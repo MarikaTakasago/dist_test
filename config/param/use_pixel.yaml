@@ -1,0 +1,6 @@
+referenced_laser_num: 50
+offset_angle_camera_to_lidar: 0
+
+masks_topic_name: /mask_rcnn/masks
+# scan_topic_name: /scan
+scan_topic_name: /disturbing_points_detector/filtered_laser
